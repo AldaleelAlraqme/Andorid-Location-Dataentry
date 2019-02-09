@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+
+    <ScrollView
+        android:id="@+id/scrollView3"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            tools:layout_editor_absoluteX="8dp"
+            tools:layout_editor_absoluteY="8dp">
+
+            <ImageView
+                android:id="@+id/imageView2"
+                android:layout_width="match_parent"
+                android:layout_height="75dp"
+                android:backgroundTint="@color/colorPrimaryDark"
+                app:srcCompat="@drawable/daleel" />
+
+            <android.support.v7.widget.AppCompatButton
+                android:id="@+id/btn_addschool"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Add School"
+                android:textColor="@color/colorPrimaryDark"
+                android:textSize="36sp"
+                app:backgroundTint="@color/common_google_signin_btn_text_dark" />
+
+
+            <android.support.v7.widget.AppCompatButton
+                android:id="@+id/btn_data"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="DB data"
+                android:textColor="@color/colorPrimaryDark"
+                android:textSize="36sp"
+                app:backgroundTint="@color/common_google_signin_btn_text_dark" />
+
+
+            <android.support.v7.widget.AppCompatButton
+                android:id="@+id/btn_upload"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Upload"
+                android:textColor="@color/colorPrimaryDark"
+                android:textSize="36sp"
+                app:backgroundTint="@color/common_google_signin_btn_text_dark" />
+
+            <android.support.v7.widget.AppCompatButton
+                android:id="@+id/btn_reset"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Reset DB"
+                android:textColor="@color/colorPrimaryDark"
+                android:textSize="36sp"
+                app:backgroundTint="@color/common_google_signin_btn_text_dark" />
+
+            <TextView
+                android:id="@+id/txt_666"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="©2019 ALDALEEL ALRAQAME / Sofian Benissa"
+                android:textAppearance="@style/TextAppearance.AppCompat.Button"
+                android:textColor="@color/common_google_signin_btn_text_dark_default" />
+        </LinearLayout>
+    </ScrollView>
+
+</android.support.constraint.ConstraintLayout>

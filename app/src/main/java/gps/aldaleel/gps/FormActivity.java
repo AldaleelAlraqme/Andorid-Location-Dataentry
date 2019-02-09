@@ -1,0 +1,581 @@
+package gps.aldaleel.gps;
+
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.app.Application;
+import android.content.ContentValues;
+import android.content.Intent;
+import android.content.IntentSender;
+import android.content.pm.PackageManager;
+import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Color;
+import android.location.GnssStatus;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Looper;
+import android.provider.Settings;
+import android.support.annotation.NonNull;
+import android.support.design.widget.Snackbar;
+import android.support.design.widget.TextInputEditText;
+import android.support.v4.app.ActivityCompat;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Switch;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.google.android.gms.location.SettingsClient;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.karumi.dexter.Dexter;
+import com.karumi.dexter.PermissionToken;
+import com.karumi.dexter.listener.PermissionDeniedResponse;
+import com.karumi.dexter.listener.PermissionGrantedResponse;
+import com.karumi.dexter.listener.PermissionRequest;
+import com.karumi.dexter.listener.single.PermissionListener;
+
+import java.text.DateFormat;
+import java.text.Normalizer;
+import java.util.Date;
+
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
+import gps.aldaleel.gps.BuildConfig;
+import gps.aldaleel.gps.R;
+
+public class FormActivity extends AppCompatActivity implements LocationListener {
+    private static final String TAG = gps.aldaleel.gps.MainActivity.class.getSimpleName();
+    // location last updated time
+    private String mLastUpdateTime;
+
+    // location updates interval - 10sec
+    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 10000;
+
+    // fastest updates interval - 5 sec
+    // location updates will be received if another app is requesting the locations
+    // than your app can handle
+    private static final long FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
+
+    private static final int REQUEST_CHECK_SETTINGS = 100;
+
+    /*
+    txt_mnstry_name
+    txt_mnstry_number
+    txt_education_monitor
+    txt_school_current_name
+    txt_school_old_name
+    txt_school_number
+    txt_school_phone_number
+    txt_service_office
+    swh_school_highschool
+    swh_school_elementary
+    swh_school_highschool_literal
+    swh_school_highschool_scientific
+    swh_school_preschool
+    swh_school_period_afternoon
+    swh_school_period_morning
+    txt_school_class_number
+    txt_school_student_female_number
+    txt_school_student_male_number
+     */
+
+    @BindView(R.id.swh_school_period_morning)
+    Switch swhSchoolPeriodMorning;
+
+    @BindView(R.id.swh_school_period_afternoon)
+    Switch swhSchoolPeriodAfternoon;
+
+    @BindView(R.id.txt_school_student_male_number)
+    TextInputEditText txtSchoolStudentMaleNumber;
+
+    @BindView(R.id.txt_school_student_female_number)
+    TextInputEditText txtSchoolStudentFemaleNumber;
+
+    @BindView(R.id.txt_school_class_number)
+    TextInputEditText txtSchoolClassNumber;
+
+    @BindView(R.id.swh_school_preschool)
+    Switch swhSchoolPreschool;
+
+    @BindView(R.id.swh_school_highschool_scientific)
+    Switch swhSchoolHighschoolScientific;
+
+    @BindView(R.id.swh_school_highschool_literal)
+    Switch swhSchoolHighschoolLiteral;
+
+    @BindView(R.id.swh_school_elementary)
+    Switch swhSchoolElementary;
+
+    @BindView(R.id.swh_school_highschool)
+    Switch swhSchoolHighschool;
+
+    @BindView(R.id.txt_service_office)
+    TextInputEditText txtServiceOffice;
+
+    @BindView(R.id.txt_school_phone_number)
+    TextInputEditText txtSchoolPhoneNumber;
+
+    @BindView(R.id.txt_school_number)
+    TextInputEditText txtSchoolNumber;
+
+    @BindView(R.id.txt_school_old_name)
+    TextInputEditText txtSchoolOldName;
+
+    @BindView(R.id.txt_school_current_name)
+    TextInputEditText txtSchoolCurrentName;
+
+    @BindView(R.id.txt_education_monitor)
+    TextInputEditText txtEducationMonitor;
+
+    @BindView(R.id.txt_mnstry_number)
+    TextInputEditText txtMnstryNumber;
+
+    @BindView(R.id.txt_mnstry_name)
+    TextInputEditText txtMnstryName;
+
+    @BindView(R.id.txt_result)
+    TextView txtresult;
+
+    @BindView(R.id.btn_submit)
+    Button btnSubmit;
+
+    // bunch of location related apis
+    private FusedLocationProviderClient mFusedLocationClient;
+    private SettingsClient mSettingsClient;
+    private LocationRequest mLocationRequest;
+    private LocationSettingsRequest mLocationSettingsRequest;
+    private LocationCallback mLocationCallback;
+    private Location mCurrentLocation;
+    private GnssStatus.Callback mGnssStatusCallback;
+    private LocationManager mLocationManager;
+    // boolean flag to toggle the ui
+    private Boolean mRequestingLocationUpdates;
+    private int satelliteCount;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.aldaleel_form);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        ButterKnife.bind(this);
+
+        // initialize the necessary libraries
+        init();
+
+        // restore the values from saved instance state
+        restoreValuesFromBundle(savedInstanceState);
+    }
+
+
+    private void init() {
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        mSettingsClient = LocationServices.getSettingsClient(this);
+
+        mLocationManager =
+                (LocationManager) getSystemService(LOCATION_SERVICE);
+        mGnssStatusCallback = new GnssStatus.Callback() {
+            // TODO: add your code here!
+            @Override
+            public void onSatelliteStatusChanged(GnssStatus status) {
+
+                satelliteCount = status.getSatelliteCount();
+            }
+        };
+
+
+        mLocationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                super.onLocationResult(locationResult);
+                // location is received
+                mCurrentLocation = locationResult.getLastLocation();
+                mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
+
+                updateLocationUI();
+            }
+        };
+
+        mRequestingLocationUpdates = false;
+
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(UPDATE_INTERVAL_IN_MILLISECONDS);
+        mLocationRequest.setFastestInterval(FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder();
+        builder.addLocationRequest(mLocationRequest);
+        mLocationSettingsRequest = builder.build();
+    }
+
+    private void updateLocationUI() {
+        if (mCurrentLocation != null) {
+            txtresult.setText(
+                    "Lat: " + mCurrentLocation.getLatitude() + ", " +
+                            "Lng: " + mCurrentLocation.getLongitude()+", "
+                    +"Accuracy: " + mCurrentLocation.getAccuracy()+","
+                    +"Satellite Count: " + satelliteCount
+            );
+
+            // giving a blink animation on TextView
+            txtresult.setAlpha(0);
+            txtresult.animate().alpha(1).setDuration(300);
+            if(mCurrentLocation.getAccuracy()<10){
+                btnSubmit.setEnabled(true);
+                btnSubmit.setClickable(true);
+                btnSubmit.setBackgroundColor(Color.parseColor("#5345CC"));
+                btnSubmit.setTextColor(Color.parseColor("#FFFFFF"));
+                mRequestingLocationUpdates = false;
+                stopLocationUpdates();
+                Toast.makeText(getApplicationContext(),"تم الحصول على موقع عالي الدقة",Toast.LENGTH_SHORT).show();
+            }
+            // location last updated time
+//            txtUpdatedOn.setText("Last updated on: " + mLastUpdateTime);
+        }else if (mRequestingLocationUpdates){
+            txtresult.setText("جاري تحديد الموقع...");
+        }
+
+//        toggleButtons();
+    }
+
+    private void restoreValuesFromBundle(Bundle savedInstanceState) {
+        if (savedInstanceState != null) {
+            if (savedInstanceState.containsKey("is_requesting_updates")) {
+                mRequestingLocationUpdates = savedInstanceState.getBoolean("is_requesting_updates");
+            }
+
+            if (savedInstanceState.containsKey("last_known_location")) {
+                mCurrentLocation = savedInstanceState.getParcelable("last_known_location");
+            }
+
+            if (savedInstanceState.containsKey("last_updated_on")) {
+                mLastUpdateTime = savedInstanceState.getString("last_updated_on");
+            }
+        }
+
+        updateLocationUI();
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean("is_requesting_updates", mRequestingLocationUpdates);
+        outState.putParcelable("last_known_location", mCurrentLocation);
+        outState.putString("last_updated_on", mLastUpdateTime);
+
+    }
+
+    public void startLocationButtonClick() {
+        // Requesting ACCESS_FINE_LOCATION using Dexter library
+        Dexter.withActivity(this)
+                .withPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                .withListener(new PermissionListener() {
+                    @Override
+                    public void onPermissionGranted(PermissionGrantedResponse response) {
+                        mRequestingLocationUpdates = true;
+                        startLocationUpdates();
+                    }
+
+                    @Override
+                    public void onPermissionDenied(PermissionDeniedResponse response) {
+                        if (response.isPermanentlyDenied()) {
+                            // open device settings when the permission is
+                            // denied permanently
+                            openSettings();
+                        }
+                    }
+
+                    @Override
+                    public void onPermissionRationaleShouldBeShown(PermissionRequest permission, PermissionToken token) {
+                        token.continuePermissionRequest();
+                    }
+                }).check();
+    }
+
+    /**
+     * Starting location updates
+     * Check whether location settings are satisfied and then
+     * location updates will be requested
+     */
+    private void startLocationUpdates() {
+        mSettingsClient
+                .checkLocationSettings(mLocationSettingsRequest)
+                .addOnSuccessListener(this, new OnSuccessListener<LocationSettingsResponse>() {
+                    @SuppressLint("MissingPermission")
+                    @Override
+                    public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
+                        Log.i(TAG, "All location settings are satisfied.");
+
+                        Toast.makeText(getApplicationContext(), "بدء البحث عن الموقع", Toast.LENGTH_SHORT).show();
+                        mLocationManager.registerGnssStatusCallback(mGnssStatusCallback);
+                        mLocationManager.requestLocationUpdates(
+                                LocationManager.GPS_PROVIDER, (long)30000, (float)0, gps.aldaleel.gps.FormActivity.this
+                        );
+//                        mFusedLocationClient.(mGnssStatusCallback);
+                        //noinspection MissingPermission
+                        mFusedLocationClient.requestLocationUpdates(mLocationRequest,
+                                mLocationCallback, Looper.myLooper());
+
+                        updateLocationUI();
+                    }
+                })
+                .addOnFailureListener(this, new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        int statusCode = ((ApiException) e).getStatusCode();
+                        switch (statusCode) {
+                            case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                                Log.i(TAG, "Location settings are not satisfied. Attempting to upgrade " +
+                                        "location settings ");
+                                try {
+                                    // Show the dialog by calling startResolutionForResult(), and check the
+                                    // result in onActivityResult().
+                                    ResolvableApiException rae = (ResolvableApiException) e;
+                                    rae.startResolutionForResult(gps.aldaleel.gps.FormActivity.this, REQUEST_CHECK_SETTINGS);
+                                } catch (IntentSender.SendIntentException sie) {
+                                    Log.i(TAG, "PendingIntent unable to execute request.");
+                                }
+                                break;
+                            case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                                String errorMessage = "Location settings are inadequate, and cannot be " +
+                                        "fixed here. Fix in Settings.";
+                                Log.e(TAG, errorMessage);
+
+                                Toast.makeText(gps.aldaleel.gps.FormActivity.this, errorMessage, Toast.LENGTH_LONG).show();
+                        }
+
+                        updateLocationUI();
+                    }
+                });
+    }
+
+    private void openSettings() {
+        Intent intent = new Intent();
+        intent.setAction(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        Uri uri = Uri.fromParts("package",
+                BuildConfig.APPLICATION_ID, null);
+        intent.setData(uri);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+    }
+
+    private boolean checkPermissions() {
+        int permissionState = ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION);
+        return permissionState == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @OnClick(R.id.txt_result)
+    public void startLocationProcess(){
+        startLocationButtonClick();
+    }
+
+    public void saveForm(Object[] form){
+        try{
+            SQLiteDatabase mydatabase = openOrCreateDatabase("aldaleel",MODE_PRIVATE,null);
+            //SQLiteDatabase.openOrCreateDatabase("aldaleel.db",null);
+
+            //mydatabase.execSQL("DROP TABLE IF EXISTS Schools;");
+            mydatabase.execSQL("CREATE TABLE IF NOT EXISTS Schools(`Ministy_name` VARCHAR(55),`Ministry_number` VARCHAR(55),`Education_monitor` VARCHAR(55),`School_name_current` VARCHAR(55),`School_name_old` VARCHAR(55),`School_number` VARCHAR(55),`SCHOOL_PHONE` VARCHAR(55),`Service_office` VARCHAR(55),`School_elementary_bool` VARCHAR(55),`School_highschool_bool` VARCHAR(55),`School_highschool_literary_bool` VARCHAR(55),`School_highschool_scientific_bool` VARCHAR(55),`School_preschool_bool` VARCHAR(55),`School_class_number` VARCHAR(55),`School_student_female_number` VARCHAR(55),`School_student_male_number` VARCHAR(55),`School_period_afternoon_bool` VARCHAR(55),`School_period_morning_bool` VARCHAR(55),`School_gps_longitude` VARCHAR(55),`School_gps_latitude` VARCHAR(55));");
+
+//            String dbins = "";
+//            for(int i =0;i<20;i++){
+//                dbins+=""+form[i];
+//                if(i!=19){
+//                    dbins.concat(",");
+//                }
+//            }
+//            mydatabase.execSQL(String.format("INSERT INTO Schools VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);", form[0],form[1],form[2],form[3],form[4],form[5],form[6],form[7],form[8],form[9],form[10],form[11],form[12],form[13],form[14],form[15],form[16],form[17],form[18],form[19]));
+            ContentValues values = new ContentValues();
+            values.put("Ministy_name", form[0].toString());
+            values.put("Ministry_number", form[1].toString());
+            values.put("Education_monitor", form[2].toString());
+            values.put("School_name_current", form[3].toString());
+            values.put("School_name_old", form[4].toString());
+            values.put("School_number", form[5].toString());
+            values.put("SCHOOL_PHONE", form[6].toString());
+            values.put("Service_office", form[7].toString());
+            values.put("School_elementary_bool", form[8].toString());
+            values.put("School_highschool_bool", form[9].toString());
+            values.put("School_highschool_literary_bool", form[10].toString());
+            values.put("School_highschool_scientific_bool", form[11].toString());
+            values.put("School_preschool_bool", form[12].toString());
+            values.put("School_class_number", form[13].toString());
+            values.put("School_student_female_number", form[14].toString());
+            values.put("School_student_male_number", form[15].toString());
+            values.put("School_period_afternoon_bool", form[16].toString());
+            values.put("School_period_morning_bool", form[17].toString());
+            values.put("School_gps_longitude", form[18].toString());
+            values.put("School_gps_latitude", form[19].toString());
+
+            mydatabase.insert("Schools",null,values);
+            View view = findViewById(R.id.btn_submit);
+            Snackbar.make(view, "تمت إضافة مدرسة جديدة", Snackbar.LENGTH_LONG);
+            Toast.makeText(getApplicationContext(),"تمت إضافة مدرسة جديدة", Toast.LENGTH_LONG).show();
+            Intent openThree = new Intent(getApplicationContext(),MainActivity.class);
+            startActivity(openThree);
+        }
+        catch (Exception exp){
+            Log.v(exp.getCause().toString(),exp.getMessage());
+        }
+
+    }
+
+    private String gnssStatusToString(GnssStatus gnssStatus) {
+
+        StringBuilder builder = new StringBuilder("SATELLITE_STATUS | [Satellites:\n");
+        for (int i = 0; i < gnssStatus.getSatelliteCount(); i++) {
+            builder
+                    //.append("Constellation = ")
+                    //.append(getConstellationName(gnssStatus.getConstellationType(i)))
+                    //.append(", ");
+            .append("Svid = ").append(gnssStatus.getSvid(i)).append(", ");
+            builder.append("Cn0DbHz = ").append(gnssStatus.getCn0DbHz(i)).append(", ");
+            builder.append("Elevation = ").append(gnssStatus.getElevationDegrees(i)).append(", ");
+            builder.append("Azimuth = ").append(gnssStatus.getAzimuthDegrees(i)).append(", ");
+            builder.append("hasEphemeris = ").append(gnssStatus.hasEphemerisData(i)).append(", ");
+            builder.append("hasAlmanac = ").append(gnssStatus.hasAlmanacData(i)).append(", ");
+            builder.append("usedInFix = ").append(gnssStatus.usedInFix(i)).append("\n");
+        }
+        builder.append("]");
+        return builder.toString();
+    }
+
+
+    public class GnssStatuses extends GnssStatus.Callback{
+
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status,
+                                Bundle extras) {
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+    }
+    /*
+    txt_mnstry_name
+    txt_mnstry_number
+    txt_education_monitor
+    txt_school_current_name
+    txt_school_old_name
+    txt_school_number
+    txt_school_phone_number
+    txt_service_office
+    swh_school_highschool
+    swh_school_elementary
+    swh_school_highschool_literal
+    swh_school_highschool_scientific
+    swh_school_preschool
+    txt_school_class_number
+    txt_school_student_female_number
+    txt_school_student_male_number
+     */
+    @OnClick(R.id.btn_submit)
+    public void onSubmitClick(){
+        if(btnSubmit.isClickable()){
+            if (mCurrentLocation != null) {
+                if(mCurrentLocation.getAccuracy()<10){
+                    Object[] form = new Object[20];
+                    form[0] = txtMnstryName.getText().toString();
+                    form[1] = txtMnstryNumber.getText().toString();
+                    form[2] = txtEducationMonitor.getText().toString();
+                    form[3] = txtSchoolCurrentName.getText().toString();
+                    form[4] = txtSchoolOldName.getText().toString();
+                    form[5] = txtSchoolNumber.getText().toString();
+                    form[6] = txtSchoolPhoneNumber.getText().toString();
+                    form[7] = txtServiceOffice.getText().toString();
+                    form[8] = swhSchoolElementary.isChecked();
+                    form[9] = swhSchoolHighschool.isChecked();
+                    form[10] = swhSchoolHighschoolLiteral.isChecked();
+                    form[11] = swhSchoolHighschoolScientific.isChecked();
+                    form[12] = swhSchoolPreschool.isChecked();
+                    form[13] = txtSchoolClassNumber.getText().toString();
+                    form[14] = txtSchoolStudentFemaleNumber.getText().toString();
+                    form[15] = txtSchoolStudentMaleNumber.getText().toString();
+                    form[16] = swhSchoolPeriodAfternoon.isChecked();
+                    form[17] = swhSchoolPeriodMorning.isChecked();
+                    form[18] = mCurrentLocation.getLongitude();//lon
+                    form[19] = mCurrentLocation.getLatitude();//lat
+                    //check values!!
+//                    if(form.good){send}
+                    for(Object obj: form){
+                        if(obj instanceof String){
+                            if(((String) obj).equals("")){
+                                Toast.makeText(getApplicationContext(),"الرجاء إدخال جميع البيانات اللازمة", Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                        }
+                    }
+                    if(!swhSchoolPreschool.isChecked() && !swhSchoolHighschool.isChecked() && !swhSchoolElementary.isChecked()){
+                        Toast.makeText(getApplicationContext(),"يجب أن تكون للمدرسة على الاقل مرحلة تعليمية واحده", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    if(swhSchoolHighschool.isChecked()){
+                        if(!swhSchoolHighschoolScientific.isChecked() && !swhSchoolHighschoolLiteral.isChecked()){
+                            Toast.makeText(getApplicationContext(),"يجب إدخال إن كان التعليم علمي/ادبي إن كانت مدرسة ثانوية", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                    }
+                    if(!swhSchoolPeriodMorning.isChecked() && !swhSchoolPeriodAfternoon.isChecked()){
+                        Toast.makeText(getApplicationContext(),"يجب تحديد الفترة صباحية/مسائية", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    //all good down here
+                    saveForm(form);
+
+                }else{
+                    Toast.makeText(getApplicationContext(),"الرجاء الإنتظار حتى الحصول على إشارة قمر صناعي قوية",Toast.LENGTH_SHORT).show();
+                }
+            }else{
+                Toast.makeText(getApplicationContext(),"الرجاء الإنتظار حتى الحصول على إشارة قمر صناعي قوية",Toast.LENGTH_SHORT).show();
+            }
+        }else{
+            Toast.makeText(getApplicationContext(),"الرجاء الإنتظار حتى الحصول على إشارة قمر صناعي قوية",Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void stopLocationUpdates() {
+        // Removing location updates
+        mFusedLocationClient
+                .removeLocationUpdates(mLocationCallback)
+                .addOnCompleteListener(this, new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        Toast.makeText(getApplicationContext(), "تم التوقف عن البحث عن الموقع", Toast.LENGTH_SHORT).show();
+
+                    }
+                });
+    }
+}
